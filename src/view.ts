@@ -11,6 +11,7 @@ import { get } from "svelte/store";
 
 import { TRIGGER_ON_OPEN, VIEW_TYPE_CALENDAR } from "src/constants";
 import { tryToCreateDailyNote } from "src/io/dailyNotes";
+import { getMonthlyNote, tryToCreateMonthlyNote } from "src/io/monthlyNotes";
 import { tryToCreateWeeklyNote } from "src/io/weeklyNotes";
 import type { ISettings } from "src/settings";
 
@@ -33,6 +34,8 @@ export default class CalendarView extends ItemView {
 
     this.openOrCreateDailyNote = this.openOrCreateDailyNote.bind(this);
     this.openOrCreateWeeklyNote = this.openOrCreateWeeklyNote.bind(this);
+    this.openOrCreateMonthlyNote = this.openOrCreateMonthlyNote.bind(this);
+    this.onClickMonth = this.onClickMonth.bind(this);
 
     this.onNoteSettingsUpdate = this.onNoteSettingsUpdate.bind(this);
     this.onFileCreated = this.onFileCreated.bind(this);
@@ -112,6 +115,26 @@ export default class CalendarView extends ItemView {
         sources,
       },
     });
+
+    // The calendar UI has no month click handler, so intercept clicks on the
+    // month/year title before its default "reset to today" handler runs.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const contentEl: HTMLElement = (this as any).contentEl;
+    contentEl.addEventListener("click", this.onClickMonth, true);
+    this.register(() =>
+      contentEl.removeEventListener("click", this.onClickMonth, true)
+    );
+  }
+
+  private onClickMonth(event: MouseEvent): void {
+    if (!(event.target as HTMLElement).closest?.(".nav .title")) {
+      return;
+    }
+    event.stopPropagation();
+    this.openOrCreateMonthlyNote(
+      this.calendar.getDisplayedMonth(),
+      event.metaKey || event.ctrlKey
+    );
   }
 
   onHoverDay(
@@ -280,6 +303,30 @@ export default class CalendarView extends ItemView {
 
     activeFile.setFile(existingFile);
     workspace.setActiveLeaf(leaf, true, true)
+  }
+
+  async openOrCreateMonthlyNote(
+    date: Moment,
+    inNewSplit: boolean
+  ): Promise<void> {
+    const { workspace } = this.app;
+
+    const startOfMonth = date.clone().startOf("month");
+
+    const existingFile = getMonthlyNote(startOfMonth, this.settings);
+
+    if (!existingFile) {
+      // File doesn't exist
+      tryToCreateMonthlyNote(startOfMonth, inNewSplit, this.settings);
+      return;
+    }
+
+    const leaf = inNewSplit
+      ? workspace.splitActiveLeaf()
+      : workspace.getUnpinnedLeaf();
+    await leaf.openFile(existingFile);
+
+    workspace.setActiveLeaf(leaf, true, true);
   }
 
   async openOrCreateDailyNote(
