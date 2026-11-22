@@ -25,6 +25,10 @@
   export let onContextMenuDay: (date: Moment, event: MouseEvent) => boolean;
   export let onContextMenuWeek: (date: Moment, event: MouseEvent) => boolean;
 
+  export function getDisplayedMonth(): Moment {
+    return displayedMonth;
+  }
+
   export function tick() {
     today = window.moment();
   }

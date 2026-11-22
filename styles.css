@@ -9,3 +9,7 @@
 .settings-banner h4 {
   margin: 0;
 }
+
+#calendar-container .nav .title {
+  cursor: pointer;
+}
